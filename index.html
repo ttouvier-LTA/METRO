@@ -4,6 +4,226 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>METRO PRO - Chef Thierry</title>
+    <!-- Chargement de Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+    <style>
+        :root { --main-bg: #f0f2f5; --panel-bg: #ffffff; }
+        body { font-family: sans-serif; background: var(--main-bg); margin: 0; padding: 10px; padding-bottom: 120px; }
+        .empty-state { text-align: center; color: #7f8c8d; margin-top: 50px; padding: 20px; border: 2px dashed #bdc3c7; border-radius: 10px; }
+        .category-block { background: var(--panel-bg); border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); overflow: hidden; border-left: 8px solid var(--cat-color); }
+        .category-header { background: var(--cat-color); color: white; padding: 10px; font-size: 0.85em; font-weight: bold; text-transform: uppercase; }
+        .item { display: flex; align-items: center; padding: 15px; border-bottom: 1px solid #eee; }
+        input[type="checkbox"] { width: 28px; height: 28px; margin-right: 15px; }
+        .qty { font-weight: bold; color: #333; background: #eee; padding: 2px 6px; border-radius: 4px; margin-right: 8px; }
+        .item-text { flex-grow: 1; font-size: 1.1em; text-transform: capitalize; cursor: pointer; }
+        .controls { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 20px; z-index: 100; }
+        .btn { border-radius: 50%; border: 5px solid white; color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.3); cursor: pointer; display: flex; align-items: center; justify-content: center; width: 60px; height: 60px; }
+        .voice-btn { width: 80px; height: 80px; background: #e74c3c; font-size: 30px; }
+        .kb-btn { background: #3498db; font-size: 22px; }
+        .listening { background: #27ae60; animation: pulse 1.2s infinite; }
+        #manualInputZone { display:none; position:fixed; bottom:0; left:0; width:100%; background:white; padding:20px; box-sizing:border-box; border-top:3px solid #3498db; z-index:150; padding-bottom: 100px; }
+        .input-row { display: flex; gap: 10px; }
+        #mainInput { flex-grow: 1; padding: 15px; font-size: 18px; border: 2px solid #ddd; border-radius: 8px; outline: none; }
+        #autocomplete-box { display:none; position:fixed; bottom:180px; left:5%; width:90%; background:white; border-radius:10px; box-shadow: 0 -5px 15px rgba(0,0,0,0.2); z-index:200; max-height: 200px; overflow-y: auto; }
+        .suggestion { padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .suggest-cat { font-size: 0.7em; padding: 3px 8px; border-radius: 10px; color: white; font-weight: bold; }
+        #modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-content { background: white; padding: 20px; border-radius: 12px; width: 85%; max-height: 80%; overflow-y: auto; }
+        .cat-option { padding: 15px; border-bottom: 1px solid #eee; font-weight: bold; border-left: 8px solid var(--c); margin-bottom: 5px; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+    </style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<div id="manualInputZone">
+    <form id="inputForm" onsubmit="event.preventDefault(); submitManual();" class="input-row">
+        <input type="text" id="mainInput" placeholder="ex: 2kg farine..." oninput="handleTyping(this.value)" autocomplete="off">
+        <button type="submit" style="padding:15px 25px; background:#3498db; color:white; border:none; border-radius:8px; font-weight:bold;">OK</button>
+    </form>
+    <div id="autocomplete-box"></div>
+</div>
+
+<div class="controls">
+    <button class="btn kb-btn" onclick="toggleInput()">⌨️</button>
+    <button class="btn voice-btn" id="micBtn" onclick="startVoice()">🎤</button>
+</div>
+
+<div id="modal">
+    <div class="modal-content">
+        <h3 style="margin-top:0">Classer dans...</h3>
+        <div id="modalBody"></div>
+        <button onclick="closeModal()" style="margin-top:20px; width:100%; padding:15px; background:#bdc3c7; border:none; border-radius:8px;">ANNULER</button>
+    </div>
+</div>
+
+<script>
+    // --- CONFIGURATION FIREBASE ---
+    const firebaseConfig = {
+        apiKey: "AIzaSyDyRIhVZDQQ3p33TJBEUnEGse_8v3W3CJs",
+        authDomain: "metro-thierry.firebaseapp.com",
+        databaseURL: "https://metro-thierry-default-rtdb.europe-west1.firebasedatabase.app",
+        projectId: "metro-thierry",
+        storageBucket: "metro-thierry.firebasestorage.app",
+        messagingSenderId: "625725190173",
+        appId: "1:625725190173:web:e992f67c0dc8606164d6f4"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const listRef = db.ref('shoppingList');
+    const memoireRef = db.ref('memoireChef');
+
+    const CONFIG = {
+        "HERBES": "#27ae60", "LÉGUMES": "#2ecc71", "BOF": "#f1c40f", "BOUCHERIE": "#c0392b",
+        "SURGELÉ": "#3498db", "ALCOOLS": "#8e44ad", "ÉPICERIE_1": "#e67e22", "ASIATIQUE": "#d35400",
+        "SOFTS": "#1abc9c", "ÉPICERIE_2": "#d35400", "ÉPICERIE_3": "#7f8c8d", "EAUX": "#2980b9",
+        "PÂTISSERIE": "#fd79a8", "ÉQUIPEMENT": "#2c3e50", "À CLASSER": "#95a5a6"
+    };
+    const ORDRE = Object.keys(CONFIG).filter(k => k !== "À CLASSER");
+    
+    let memoireChef = {};
+    let shoppingList = [];
+    let currentEditId = null;
+
+    // --- ÉCOUTE TEMPS RÉEL FIREBASE ---
+    memoireRef.on('value', (snapshot) => {
+        memoireChef = snapshot.val() || {};
+    });
+
+    listRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        shoppingList = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
+        render();
+    });
+
+    function render() {
+        const app = document.getElementById('app');
+        const itemsToDisplay = shoppingList.filter(i => !i.checked);
+        if (itemsToDisplay.length === 0) {
+            app.innerHTML = '<div class="empty-state"><h3>Prêt pour Metro</h3><p>Appuyez sur le micro ou le clavier.</p></div>';
+            return;
+        }
+        app.innerHTML = '';
+        [...ORDRE, "À CLASSER"].forEach(cat => {
+            const itemsCat = itemsToDisplay.filter(i => i.cat === cat);
+            if (itemsCat.length > 0) {
+                let div = document.createElement('div');
+                div.className = 'category-block';
+                div.style.setProperty('--cat-color', CONFIG[cat]);
+                let html = `<div class="category-header">${cat}</div>`;
+                itemsCat.forEach(item => {
+                    html += `<div class="item">
+                        <input type="checkbox" onclick="checkItem('${item.id}')">
+                        <span class="item-text" onclick="openEdit('${item.id}')">
+                            ${item.qty ? `<span class="qty">${item.qty}</span>` : ''} ${item.nom}
+                        </span>
+                    </div>`;
+                });
+                div.innerHTML = html;
+                app.appendChild(div);
+            }
+        });
+    }
+
+    function addToList(brut) {
+        const regexQty = /^(\d+\s?(kg|g|l|cl|ml|bottes|colis|caisses|pièces|unités)?)\s?de?\s?(.*)/i;
+        const match = brut.match(regexQty);
+        const nom = (match ? match[3] : brut).toLowerCase().trim();
+        if(!nom) return;
+        
+        const cat = memoireChef[nom] || "À CLASSER";
+        listRef.push({ nom, qty: match ? match[1] : "", cat, checked: false });
+    }
+
+    function handleTyping(val) {
+        const box = document.getElementById('autocomplete-box');
+        const recherche = val.toLowerCase().trim();
+        if (recherche.length < 2) { box.style.display = 'none'; return; }
+        const suggestions = Object.keys(memoireChef).filter(k => k.startsWith(recherche));
+        if (suggestions.length > 0) {
+            box.innerHTML = '';
+            suggestions.forEach(s => {
+                const cat = memoireChef[s];
+                const div = document.createElement('div');
+                div.className = 'suggestion';
+                div.innerHTML = `<span>${s}</span> <span class="suggest-cat" style="background:${CONFIG[cat]}">${cat}</span>`;
+                div.onclick = () => {
+                    addToList(s);
+                    document.getElementById('mainInput').value = '';
+                    box.style.display = 'none';
+                    toggleInput();
+                };
+                box.appendChild(div);
+            });
+            box.style.display = 'block';
+        } else { box.style.display = 'none'; }
+    }
+
+    function openEdit(id) {
+        currentEditId = id;
+        const body = document.getElementById('modalBody');
+        body.innerHTML = '';
+        [...ORDRE, "À CLASSER"].forEach(cat => {
+            const div = document.createElement('div');
+            div.className = 'cat-option';
+            div.style.setProperty('--c', CONFIG[cat]);
+            div.innerText = cat;
+            div.onclick = () => {
+                const item = shoppingList.find(i => i.id === currentEditId);
+                memoireRef.child(item.nom.toLowerCase()).set(cat);
+                listRef.child(currentEditId).update({ cat: cat });
+                closeModal();
+            };
+            body.appendChild(div);
+        });
+        document.getElementById('modal').style.display = 'flex';
+    }
+
+    function checkItem(id) {
+        setTimeout(() => {
+            listRef.child(id).remove();
+        }, 500);
+    }
+
+    function toggleInput() {
+        const zone = document.getElementById('manualInputZone');
+        zone.style.display = zone.style.display === 'block' ? 'none' : 'block';
+        if(zone.style.display === 'block') document.getElementById('mainInput').focus();
+    }
+
+    function submitManual() {
+        const input = document.getElementById('mainInput');
+        if (input.value.trim()) {
+            addToList(input.value);
+            input.value = '';
+            document.getElementById('autocomplete-box').style.display = 'none';
+            toggleInput();
+        }
+    }
+
+    function closeModal() { document.getElementById('modal').style.display = 'none'; }
+
+    function startVoice() {
+        const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
+        if (!SpeechRecognition) return alert("Micro non supporté");
+        const rec = new SpeechRecognition();
+        rec.lang = 'fr-FR';
+        rec.onstart = () => document.getElementById('micBtn').classList.add('listening');
+        rec.onresult = (e) => addToList(e.results[0][0].transcript);
+        rec.onend = () => document.getElementById('micBtn').classList.remove('listening');
+        rec.start();
+    }
+</script>
+</body>
+</html><!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>METRO PRO - Chef Thierry</title>
     <style>
         :root { --main-bg: #f0f2f5; --panel-bg: #ffffff; }
         body { font-family: sans-serif; background: var(--main-bg); margin: 0; padding: 10px; padding-bottom: 120px; }
