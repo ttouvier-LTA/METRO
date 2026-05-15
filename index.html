@@ -20,7 +20,8 @@
         .kb-btn { background: #3498db; font-size: 22px; }
         .listening { background: #27ae60; animation: pulse 1.2s infinite; }
         #manualInputZone { display:none; position:fixed; bottom:0; left:0; width:100%; background:white; padding:20px; box-sizing:border-box; border-top:3px solid #3498db; z-index:150; padding-bottom: 100px; }
-        #manualInputZone input { width: 75%; padding: 15px; font-size: 18px; border: 2px solid #ddd; border-radius: 8px; }
+        .input-row { display: flex; gap: 10px; }
+        #mainInput { flex-grow: 1; padding: 15px; font-size: 18px; border: 2px solid #ddd; border-radius: 8px; outline: none; }
         #autocomplete-box { display:none; position:fixed; bottom:180px; left:5%; width:90%; background:white; border-radius:10px; box-shadow: 0 -5px 15px rgba(0,0,0,0.2); z-index:200; max-height: 200px; overflow-y: auto; }
         .suggestion { padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
         .suggest-cat { font-size: 0.7em; padding: 3px 8px; border-radius: 10px; color: white; font-weight: bold; }
@@ -35,8 +36,10 @@
 <div id="app"></div>
 
 <div id="manualInputZone">
-    <input type="text" id="mainInput" placeholder="ex: 2kg farine..." oninput="handleTyping(this.value)">
-    <button onclick="submitManual()" style="padding:15px; background:#3498db; color:white; border:none; border-radius:8px;">OK</button>
+    <form id="inputForm" onsubmit="event.preventDefault(); submitManual();" class="input-row">
+        <input type="text" id="mainInput" placeholder="ex: 2kg farine..." oninput="handleTyping(this.value)" autocomplete="off">
+        <button type="submit" style="padding:15px 25px; background:#3498db; color:white; border:none; border-radius:8px; font-weight:bold;">OK</button>
+    </form>
     <div id="autocomplete-box"></div>
 </div>
 
@@ -62,9 +65,7 @@
     };
     const ORDRE = Object.keys(CONFIG).filter(k => k !== "À CLASSER");
     
-    let memoireChef = JSON.parse(localStorage.getItem('memoire_categories')) || {
-        "farine": "ÉPICERIE_1", "tomate": "ÉPICERIE_1", "veau": "ÉPICERIE_2", "noisette": "ÉPICERIE_3"
-    };
+    let memoireChef = JSON.parse(localStorage.getItem('memoire_categories')) || {};
     let shoppingList = JSON.parse(localStorage.getItem('metro_list')) || [];
     let currentEditId = null;
 
@@ -105,12 +106,8 @@
 
     function handleTyping(val) {
         const box = document.getElementById('autocomplete-box');
-        const regexQty = /^(\d+\s?(kg|g|l|cl|ml|bottes|colis|caisses|pièces|unités)?)\s?de?\s?(.*)/i;
-        const match = val.match(regexQty);
-        const recherche = (match ? match[3] : val).toLowerCase();
-        
+        const recherche = val.toLowerCase().trim();
         if (recherche.length < 2) { box.style.display = 'none'; return; }
-
         const suggestions = Object.keys(memoireChef).filter(k => k.startsWith(recherche));
         if (suggestions.length > 0) {
             box.innerHTML = '';
@@ -120,7 +117,7 @@
                 div.className = 'suggestion';
                 div.innerHTML = `<span>${s}</span> <span class="suggest-cat" style="background:${CONFIG[cat]}">${cat}</span>`;
                 div.onclick = () => {
-                    addToList(match ? match[1] + " de " + s : s);
+                    addToList(s);
                     document.getElementById('mainInput').value = '';
                     box.style.display = 'none';
                     toggleInput();
@@ -154,22 +151,28 @@
 
     function toggleInput() {
         const zone = document.getElementById('manualInputZone');
+        const input = document.getElementById('mainInput');
         zone.style.display = zone.style.display === 'block' ? 'none' : 'block';
-        if(zone.style.display === 'block') document.getElementById('mainInput').focus();
+        if(zone.style.display === 'block') input.focus();
     }
 
     function addToList(brut) {
         const regexQty = /^(\d+\s?(kg|g|l|cl|ml|bottes|colis|caisses|pièces|unités)?)\s?de?\s?(.*)/i;
         const match = brut.match(regexQty);
-        const nom = (match ? match[3] : brut).toLowerCase();
+        const nom = (match ? match[3] : brut).toLowerCase().trim();
+        if(!nom) return;
         shoppingList.push({ id: Date.now().toString(), nom, qty: match ? match[1] : "", cat: memoireChef[nom] || "À CLASSER", checked: false });
         save();
     }
 
     function submitManual() {
         const input = document.getElementById('mainInput');
-        if (input.value) addToList(input.value);
-        input.value = ''; toggleInput();
+        if (input.value.trim()) {
+            addToList(input.value);
+            input.value = '';
+            document.getElementById('autocomplete-box').style.display = 'none';
+            toggleInput();
+        }
     }
 
     function closeModal() { document.getElementById('modal').style.display = 'none'; }
@@ -179,7 +182,7 @@
     }
 
     function startVoice() {
-        const SpeechRecognition = window.webkitSpeechRecognition || window.Recognition;
+        const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
         if (!SpeechRecognition) return alert("Micro non supporté");
         const rec = new SpeechRecognition();
         rec.lang = 'fr-FR';
@@ -188,7 +191,6 @@
         rec.onend = () => document.getElementById('micBtn').classList.remove('listening');
         rec.start();
     }
-
     render();
 </script>
 </body>
