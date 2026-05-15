@@ -2,137 +2,215 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>METRO LTA - Chef Thierry</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>METRO PRO - Chef Thierry</title>
     <style>
-        :root { --main-bg: #f4f7f6; }
+        :root { --main-bg: #f0f2f5; --panel-bg: #ffffff; }
         body { font-family: sans-serif; background: var(--main-bg); margin: 0; padding: 10px; padding-bottom: 120px; }
-        
-        /* Liste vide */
-        .empty-state { text-align: center; color: #95a5a6; margin-top: 40px; border: 2px dashed #bdc3c7; border-radius: 15px; padding: 30px; }
-        
-        /* Catégories */
-        .category-block { background: white; border-radius: 10px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); overflow: hidden; border-left: 10px solid var(--c); }
-        .category-header { background: var(--c); color: white; padding: 12px; font-weight: bold; font-size: 0.9em; text-transform: uppercase; }
-        
-        /* Articles */
-        .item { display: flex; align-items: center; padding: 15px; border-bottom: 1px solid #eee; background: white; }
-        .item:active { background: #f9f9f9; }
-        input[type="checkbox"] { width: 30px; height: 30px; margin-right: 15px; }
-        .qty { font-weight: bold; color: #2c3e50; background: #ecf0f1; padding: 3px 8px; border-radius: 5px; margin-right: 10px; }
-        .item-text { flex-grow: 1; font-size: 1.2em; color: #34495e; }
-
-        /* Barre de commandes fixe en bas */
-        .footer-controls { position: fixed; bottom: 0; left: 0; width: 100%; background: white; padding: 20px 0; display: flex; justify-content: center; gap: 30px; box-shadow: 0 -5px 15px rgba(0,0,0,0.1); z-index: 1000; }
-        .btn { border: none; border-radius: 50%; width: 70px; height: 70px; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
-        .btn-kb { background: #3498db; }
-        .btn-mic { background: #e74c3c; }
-        .btn-mic.active { background: #27ae60; animation: blink 1s infinite; }
-
-        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
-
-        /* Saisie Manuelle */
-        #input-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:2000; padding:20px; box-sizing:border-box; }
-        .input-card { background: white; padding: 20px; border-radius: 15px; margin-top: 50px; }
-        .input-card input { width: 100%; padding: 15px; font-size: 1.2em; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box; }
-        .input-card button { width: 100%; padding: 15px; margin-top: 10px; background: #3498db; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 1.1em; }
+        .empty-state { text-align: center; color: #7f8c8d; margin-top: 50px; padding: 20px; border: 2px dashed #bdc3c7; border-radius: 10px; }
+        .category-block { background: var(--panel-bg); border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); overflow: hidden; border-left: 8px solid var(--cat-color); }
+        .category-header { background: var(--cat-color); color: white; padding: 10px; font-size: 0.85em; font-weight: bold; text-transform: uppercase; }
+        .item { display: flex; align-items: center; padding: 15px; border-bottom: 1px solid #eee; }
+        input[type="checkbox"] { width: 28px; height: 28px; margin-right: 15px; }
+        .qty { font-weight: bold; color: #333; background: #eee; padding: 2px 6px; border-radius: 4px; margin-right: 8px; }
+        .item-text { flex-grow: 1; font-size: 1.1em; text-transform: capitalize; cursor: pointer; }
+        .controls { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 20px; z-index: 100; }
+        .btn { border-radius: 50%; border: 5px solid white; color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.3); cursor: pointer; display: flex; align-items: center; justify-content: center; width: 60px; height: 60px; }
+        .voice-btn { width: 80px; height: 80px; background: #e74c3c; font-size: 30px; }
+        .kb-btn { background: #3498db; font-size: 22px; }
+        .listening { background: #27ae60; animation: pulse 1.2s infinite; }
+        #manualInputZone { display:none; position:fixed; bottom:0; left:0; width:100%; background:white; padding:20px; box-sizing:border-box; border-top:3px solid #3498db; z-index:150; padding-bottom: 100px; }
+        .input-row { display: flex; gap: 10px; }
+        #mainInput { flex-grow: 1; padding: 15px; font-size: 18px; border: 2px solid #ddd; border-radius: 8px; outline: none; }
+        #mainInput:focus { border-color: #3498db; }
+        #autocomplete-box { display:none; position:fixed; bottom:180px; left:5%; width:90%; background:white; border-radius:10px; box-shadow: 0 -5px 15px rgba(0,0,0,0.2); z-index:200; max-height: 200px; overflow-y: auto; }
+        .suggestion { padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .suggest-cat { font-size: 0.7em; padding: 3px 8px; border-radius: 10px; color: white; font-weight: bold; }
+        #modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-content { background: white; padding: 20px; border-radius: 12px; width: 85%; max-height: 80%; overflow-y: auto; }
+        .cat-option { padding: 15px; border-bottom: 1px solid #eee; font-weight: bold; border-left: 8px solid var(--c); margin-bottom: 5px; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
     </style>
 </head>
 <body>
 
-<div id="app">
-    <div class="empty-state">
-        <h2>👨‍🍳 Bonjour Chef !</h2>
-        <p>Votre liste Metro est vide.<br>Utilisez les boutons ci-dessous pour ajouter vos produits.</p>
+<div id="app"></div>
+
+<div id="manualInputZone">
+    <div class="input-row">
+        <input type="text" id="mainInput" placeholder="ex: 2kg farine..." oninput="handleTyping(this.value)">
+        <button onclick="submitManual()" style="padding:15px 25px; background:#3498db; color:white; border:none; border-radius:8px; font-weight:bold;">OK</button>
     </div>
+    <div id="autocomplete-box"></div>
 </div>
 
-<div id="input-overlay">
-    <div class="input-card">
-        <h3>Nouveau produit</h3>
-        <input type="text" id="manualInput" placeholder="Ex: 5kg farine">
-        <button onclick="processInput(document.getElementById('manualInput').value)">AJOUTER</button>
-        <button onclick="closeInput()" style="background:#bdc3c7;">ANNULER</button>
-    </div>
+<div class="controls">
+    <button class="btn kb-btn" onclick="toggleInput()">⌨️</button>
+    <button class="btn voice-btn" id="micBtn" onclick="startVoice()">🎤</button>
 </div>
 
-<div class="footer-controls">
-    <button class="btn btn-kb" onclick="openInput()">⌨️</button>
-    <button class="btn btn-mic" id="micBtn">🎤</button>
+<div id="modal">
+    <div class="modal-content">
+        <h3 style="margin-top:0">Classer dans...</h3>
+        <div id="modalBody"></div>
+        <button onclick="closeModal()" style="margin-top:20px; width:100%; padding:15px; background:#bdc3c7; border:none; border-radius:8px;">ANNULER</button>
+    </div>
 </div>
 
 <script>
-    const COLORS = {
+    const CONFIG = {
         "HERBES": "#27ae60", "LÉGUMES": "#2ecc71", "BOF": "#f1c40f", "BOUCHERIE": "#c0392b",
         "SURGELÉ": "#3498db", "ALCOOLS": "#8e44ad", "ÉPICERIE_1": "#e67e22", "ASIATIQUE": "#d35400",
         "SOFTS": "#1abc9c", "ÉPICERIE_2": "#d35400", "ÉPICERIE_3": "#7f8c8d", "EAUX": "#2980b9",
         "PÂTISSERIE": "#fd79a8", "ÉQUIPEMENT": "#2c3e50", "À CLASSER": "#95a5a6"
     };
-    const ORDER = Object.keys(COLORS);
+    const ORDRE = Object.keys(CONFIG).filter(k => k !== "À CLASSER");
+    
+    let memoireChef = JSON.parse(localStorage.getItem('memoire_categories')) || {
+        "farine": "ÉPICERIE_1", "tomate": "ÉPICERIE_1", "veau": "ÉPICERIE_2", "noisette": "ÉPICERIE_3"
+    };
+    let shoppingList = JSON.parse(localStorage.getItem('metro_list')) || [];
+    let currentEditId = null;
 
-    let memoire = JSON.parse(localStorage.getItem('metro_memoire')) || { "farine": "ÉPICERIE_1", "veau": "ÉPICERIE_2" };
-    let list = JSON.parse(localStorage.getItem('metro_list')) || [];
+    // Détection de la touche Entrée
+    document.getElementById('mainInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            submitManual();
+        }
+    });
 
-    function openInput() { document.getElementById('input-overlay').style.display = 'block'; document.getElementById('manualInput').focus(); }
-    function closeInput() { document.getElementById('input-overlay').style.display = 'none'; }
-
-    function processInput(txt) {
-        if (!txt) return;
-        const regex = /^(\d+\s?(kg|g|l|cl|ml|bottes|colis|caisses|pièces|unités)?)\s?de?\s?(.*)/i;
-        const match = txt.match(regex);
-        const nom = match ? match[3] : txt;
-        const qty = match ? match[1] : "";
-        const cat = memoire[nom.toLowerCase()] || "À CLASSER";
-        
-        list.push({ id: Date.now(), nom, qty, cat, checked: false });
-        localStorage.setItem('metro_list', JSON.stringify(list));
-        closeInput();
-        document.getElementById('manualInput').value = '';
+    function save() {
+        localStorage.setItem('metro_list', JSON.stringify(shoppingList));
+        localStorage.setItem('memoire_categories', JSON.stringify(memoireChef));
         render();
     }
 
     function render() {
         const app = document.getElementById('app');
-        const activeItems = list.filter(i => !i.checked);
-        if (activeItems.length === 0) {
-            app.innerHTML = '<div class="empty-state"><h2>👨‍🍳 Bonjour Chef !</h2><p>Votre liste est vide.</p></div>';
+        const itemsToDisplay = shoppingList.filter(i => !i.checked);
+        if (itemsToDisplay.length === 0) {
+            app.innerHTML = '<div class="empty-state"><h3>Prêt pour Metro</h3><p>Appuyez sur le micro ou le clavier.</p></div>';
             return;
         }
         app.innerHTML = '';
-        ORDER.forEach(cat => {
-            const items = activeItems.filter(i => i.cat === cat);
-            if (items.length > 0) {
-                const block = document.createElement('div');
-                block.className = 'category-block';
-                block.style.setProperty('--c', COLORS[cat]);
+        [...ORDRE, "À CLASSER"].forEach(cat => {
+            const itemsCat = itemsToDisplay.filter(i => i.cat === cat);
+            if (itemsCat.length > 0) {
+                let div = document.createElement('div');
+                div.className = 'category-block';
+                div.style.setProperty('--cat-color', CONFIG[cat]);
                 let html = `<div class="category-header">${cat}</div>`;
-                items.forEach(item => {
+                itemsCat.forEach(item => {
                     html += `<div class="item">
-                        <input type="checkbox" onchange="checkItem(${item.id})">
-                        <span class="item-text">${item.qty ? `<span class="qty">${item.qty}</span>` : ''}${item.nom}</span>
+                        <input type="checkbox" onclick="checkItem('${item.id}')">
+                        <span class="item-text" onclick="openEdit('${item.id}')">
+                            ${item.qty ? `<span class="qty">${item.qty}</span>` : ''} ${item.nom}
+                        </span>
                     </div>`;
                 });
-                block.innerHTML = html;
-                app.appendChild(block);
+                div.innerHTML = html;
+                app.appendChild(div);
             }
         });
     }
 
-    function checkItem(id) {
-        list.find(i => i.id === id).checked = true;
-        localStorage.setItem('metro_list', JSON.stringify(list));
-        setTimeout(render, 300);
+    function handleTyping(val) {
+        const box = document.getElementById('autocomplete-box');
+        const regexQty = /^(\d+\s?(kg|g|l|cl|ml|bottes|colis|caisses|pièces|unités)?)\s?de?\s?(.*)/i;
+        const match = val.match(regexQty);
+        const recherche = (match ? match[3] : val).toLowerCase();
+        
+        if (recherche.length < 2) { box.style.display = 'none'; return; }
+
+        const suggestions = Object.keys(memoireChef).filter(k => k.startsWith(recherche));
+        if (suggestions.length > 0) {
+            box.innerHTML = '';
+            suggestions.forEach(s => {
+                const cat = memoireChef[s];
+                const div = document.createElement('div');
+                div.className = 'suggestion';
+                div.innerHTML = `<span>${s}</span> <span class="suggest-cat" style="background:${CONFIG[cat]}">${cat}</span>`;
+                div.onclick = () => {
+                    addToList(match ? match[1] + " de " + s : s);
+                    document.getElementById('mainInput').value = '';
+                    box.style.display = 'none';
+                    toggleInput();
+                };
+                box.appendChild(div);
+            });
+            box.style.display = 'block';
+        } else { box.style.display = 'none'; }
     }
 
-    // MICROPHONE
-    const micBtn = document.getElementById('micBtn');
-    const Speech = window.webkitSpeechRecognition || window.SpeechRecognition;
-    if (Speech) {
-        const rec = new Speech();
+    function openEdit(id) {
+        currentEditId = id;
+        const body = document.getElementById('modalBody');
+        body.innerHTML = '';
+        [...ORDRE, "À CLASSER"].forEach(cat => {
+            const div = document.createElement('div');
+            div.className = 'cat-option';
+            div.style.setProperty('--c', CONFIG[cat]);
+            div.innerText = cat;
+            div.onclick = () => {
+                const item = shoppingList.find(i => i.id === currentEditId);
+                memoireChef[item.nom.toLowerCase()] = cat;
+                item.cat = cat;
+                closeModal();
+                save();
+            };
+            body.appendChild(div);
+        });
+        document.getElementById('modal').style.display = 'flex';
+    }
+
+    function toggleInput() {
+        const zone = document.getElementById('manualInputZone');
+        const input = document.getElementById('mainInput');
+        zone.style.display = zone.style.display === 'block' ? 'none' : 'block';
+        if(zone.style.display === 'block') {
+            input.focus();
+        } else {
+            input.value = '';
+            document.getElementById('autocomplete-box').style.display = 'none';
+        }
+    }
+
+    function addToList(brut) {
+        const regexQty = /^(\d+\s?(kg|g|l|cl|ml|bottes|colis|caisses|pièces|unités)?)\s?de?\s?(.*)/i;
+        const match = brut.match(regexQty);
+        const nom = (match ? match[3] : brut).toLowerCase().trim();
+        if(!nom) return;
+        shoppingList.push({ id: Date.now().toString(), nom, qty: match ? match[1] : "", cat: memoireChef[nom] || "À CLASSER", checked: false });
+        save();
+    }
+
+    function submitManual() {
+        const input = document.getElementById('mainInput');
+        if (input.value.trim()) {
+            addToList(input.value);
+            input.value = '';
+            document.getElementById('autocomplete-box').style.display = 'none';
+            toggleInput();
+        }
+    }
+
+    function closeModal() { document.getElementById('modal').style.display = 'none'; }
+    function checkItem(id) { 
+        shoppingList.find(i => i.id === id).checked = true; 
+        setTimeout(save, 300);
+    }
+
+    function startVoice() {
+        const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
+        if (!SpeechRecognition) return alert("Micro non supporté");
+        const rec = new SpeechRecognition();
         rec.lang = 'fr-FR';
-        micBtn.onclick = () => { rec.start(); micBtn.classList.add('active'); };
-        rec.onresult = (e) => { processInput(e.results[0][0].transcript); micBtn.classList.remove('active'); };
-        rec.onend = () => micBtn.classList.remove('active');
+        rec.onstart = () => document.getElementById('micBtn').classList.add('listening');
+        rec.onresult = (e) => {
+            addToList(e.results[0][0].transcript);
+        };
+        rec.onend = () => document.getElementById('micBtn').classList.remove('listening');
+        rec.start();
     }
 
     render();
